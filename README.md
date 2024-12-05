@@ -1,68 +1,78 @@
-# AI 切磋大会积分系统
+# AI Conference Points Management System
 
-一个基于 Next.js 和 Notion 数据库的会议积分管理系统。
+A mobile web application for managing participant points and transactions during an AI conference.
 
-## 功能特点
+## Features
 
-- 用户账号激活
-- 积分余额查询
-- 积分转账功能
-- 实时交易记录
+- User activation system with phone number validation
+- Point transfer between participants and booths
+- Real-time balance checking
+- Transaction history
+- Secure authentication with JWT
 
-## 技术栈
+## Tech Stack
 
-- Next.js 13 (App Router)
-- TypeScript
-- Tailwind CSS
-- Notion API
-- JWT 认证
+- Frontend: Next.js 14, TypeScript, Tailwind CSS
+- Backend: Next.js API Routes
+- Database: Notion
+- Authentication: JWT
+- Deployment: Vercel
 
-## 开发环境设置
+## Environment Variables
 
-1. 克隆项目：
-   ```bash
-   git clone [repository-url]
-   cd [project-directory]
-   ```
+Create a `.env.local` file with the following variables:
 
-2. 安装依赖：
-   ```bash
-   npm install
-   ```
+```env
+NOTION_API_KEY=your_notion_api_key
+NOTION_PARTICIPANTS_DB=your_participants_database_id
+NOTION_BOOTHS_DB=your_booths_database_id
+NOTION_TRANSACTIONS_DB=your_transactions_database_id
+JWT_SECRET=your_jwt_secret
+```
 
-3. 配置环境变量：
-   ```bash
-   cp .env.example .env.local
-   ```
-   然后在 `.env.local` 中填入相应的配置值。
+## Development
 
-4. 启动开发服务器：
-   ```bash
-   npm run dev
-   ```
+1. Install dependencies:
+```bash
+npm install
+```
 
-## Notion 数据库设置
+2. Run the development server:
+```bash
+npm run dev
+```
 
-需要在 Notion 中创建以下数据库：
+3. Build for production:
+```bash
+npm run build
+```
 
-1. 参会者信息表
-   - 手机号（主键）
-   - 密码
-   - 是否已激活
-   - 账户余额
+4. Start production server:
+```bash
+npm start
+```
 
-2. 摊主信息表
-   - 摊位编号（主键）
-   - 手机号
-   - 账户余额
+## Notion Database Structure
 
-3. 交易详情表
-   - 参会者手机号
-   - 摊位编号
-   - 摊位名称
-   - 转账积分额
-   - 备注
-   - 交易时间
+### Participants Table
+- Name (Phone Number)
+- Password
+- Activation Status
+- Account Balance
+
+### Booths Table
+- Name (Booth ID)
+- Booth Name
+- Account Balance
+
+### Transactions Table
+- Transaction ID
+- Participant Phone
+- Booth ID
+- Booth Name
+- Transfer Amount
+- Transaction Notes
+- Transaction Timestamp
 
 ## 部署
 

@@ -1,33 +1,40 @@
 import { Client } from '@notionhq/client';
+import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 
 if (!process.env.NOTION_API_KEY) {
   throw new Error('Missing NOTION_API_KEY environment variable');
 }
 
-export const notion = new Client({
-  auth: process.env.NOTION_API_KEY,
+const notion = new Client({
+  auth: process.env.NOTION_API_KEY
 });
 
-export const DATABASES = {
-  PARTICIPANTS: process.env.NOTION_PARTICIPANTS_DB,
-  BOOTHS: process.env.NOTION_BOOTHS_DB,
-  TRANSACTIONS: process.env.NOTION_TRANSACTIONS_DB,
-};
+if (!process.env.NOTION_PARTICIPANTS_DB) {
+  throw new Error('Missing NOTION_PARTICIPANTS_DB environment variable');
+}
 
-export interface Participant {
+if (!process.env.NOTION_BOOTHS_DB) {
+  throw new Error('Missing NOTION_BOOTHS_DB environment variable');
+}
+
+if (!process.env.NOTION_TRANSACTIONS_DB) {
+  throw new Error('Missing NOTION_TRANSACTIONS_DB environment variable');
+}
+
+interface Participant {
   phone: string;
   password: string;
   isActivated: boolean;
   balance: number;
 }
 
-export interface Booth {
+interface Booth {
   id: string;
   name: string;
   balance: number;
 }
 
-export interface Transaction {
+interface Transaction {
   id: string;
   participantPhone: string;
   boothId: string;
@@ -40,7 +47,7 @@ export interface Transaction {
 export async function getParticipant(phone: string): Promise<Participant | null> {
   try {
     const response = await notion.databases.query({
-      database_id: DATABASES.PARTICIPANTS!,
+      database_id: process.env.NOTION_PARTICIPANTS_DB!,
       filter: {
         property: 'Name',
         title: {
@@ -53,14 +60,39 @@ export async function getParticipant(phone: string): Promise<Participant | null>
       return null;
     }
 
-    const page = response.results[0];
-    const properties = page.properties as any;
+    const page = response.results[0] as PageObjectResponse;
+
+    // Type guard to ensure we're working with the correct property types
+    if (!('properties' in page)) {
+      throw new Error('Invalid page object structure');
+    }
+
+    const props = page.properties;
+    
+    // Type guards for each property
+    const nameProperty = props['Name'];
+    const passwordProperty = props['密码'];
+    const activatedProperty = props['是否已激活'];
+    const balanceProperty = props['账户余额'];
+
+    if (
+      !nameProperty || 
+      nameProperty.type !== 'title' ||
+      !passwordProperty || 
+      passwordProperty.type !== 'rich_text' ||
+      !activatedProperty || 
+      activatedProperty.type !== 'checkbox' ||
+      !balanceProperty || 
+      balanceProperty.type !== 'number'
+    ) {
+      throw new Error('Invalid property structure');
+    }
 
     return {
-      phone: properties['Name'].title[0]?.plain_text || '',
-      password: properties['密码']?.rich_text[0]?.plain_text || '',
-      isActivated: properties['是否已激活']?.checkbox || false,
-      balance: properties['账户余额']?.number || 0
+      phone: nameProperty.title[0]?.plain_text || '',
+      password: passwordProperty.rich_text[0]?.plain_text || '',
+      isActivated: activatedProperty.checkbox || false,
+      balance: balanceProperty.number || 0
     };
   } catch (error) {
     console.error('Error fetching participant:', error);
@@ -71,7 +103,7 @@ export async function getParticipant(phone: string): Promise<Participant | null>
 export async function updateParticipant(phone: string, data: Partial<Participant>) {
   try {
     const response = await notion.databases.query({
-      database_id: DATABASES.PARTICIPANTS!,
+      database_id: process.env.NOTION_PARTICIPANTS_DB!,
       filter: {
         property: 'Name',
         title: {
@@ -114,21 +146,41 @@ export async function updateParticipant(phone: string, data: Partial<Participant
 export async function getAllBooths(): Promise<Booth[]> {
   try {
     const response = await notion.databases.query({
-      database_id: DATABASES.BOOTHS!,
+      database_id: process.env.NOTION_BOOTHS_DB!,
       sorts: [
         {
           property: 'Name',
-          direction: 'ascending'
-        }
-      ]
+          direction: 'ascending',
+        },
+      ],
     });
 
-    return response.results.map(page => {
-      const properties = page.properties as any;
+    return response.results.map((page) => {
+      const pageObj = page as PageObjectResponse;
+      if (!('properties' in pageObj)) {
+        throw new Error('Invalid page object structure');
+      }
+
+      const props = pageObj.properties;
+      const nameProperty = props['Name'];
+      const balanceProperty = props['账户余额'];
+      const boothNameProperty = props['摊位名称'];
+
+      if (
+        !nameProperty || 
+        nameProperty.type !== 'title' ||
+        !balanceProperty || 
+        balanceProperty.type !== 'number' ||
+        !boothNameProperty ||
+        boothNameProperty.type !== 'rich_text'
+      ) {
+        throw new Error('Invalid property structure');
+      }
+
       return {
-        id: properties['Name'].title[0]?.plain_text || '',
-        name: properties['摊位名称']?.rich_text[0]?.plain_text || '',
-        balance: properties['账户余额']?.number || 0
+        id: nameProperty.title[0]?.plain_text || '',
+        name: boothNameProperty.rich_text[0]?.plain_text || '',
+        balance: balanceProperty.number || 0,
       };
     });
   } catch (error) {
@@ -137,10 +189,10 @@ export async function getAllBooths(): Promise<Booth[]> {
   }
 }
 
-export async function updateBoothBalance(boothId: string, newBalance: number) {
+export async function updateBoothBalance(boothId: string, amount: number) {
   try {
     const response = await notion.databases.query({
-      database_id: DATABASES.BOOTHS!,
+      database_id: process.env.NOTION_BOOTHS_DB!,
       filter: {
         property: 'Name',
         title: {
@@ -154,17 +206,36 @@ export async function updateBoothBalance(boothId: string, newBalance: number) {
     }
 
     const pageId = response.results[0].id;
-    const currentBooth = response.results[0].properties as any;
-    const currentBalance = currentBooth['账户余额']?.number || 0;
+    const page = response.results[0] as PageObjectResponse;
+    
+    if (!('properties' in page)) {
+      throw new Error('Invalid page object structure');
+    }
+
+    const props = page.properties;
+    const balanceProperty = props['账户余额'];
+
+    if (!balanceProperty || balanceProperty.type !== 'number') {
+      throw new Error('Invalid balance property structure');
+    }
+
+    const currentBalance = balanceProperty.number || 0;
+    const newBalance = currentBalance + amount;
 
     await notion.pages.update({
       page_id: pageId,
       properties: {
         '账户余额': {
-          number: currentBalance + newBalance
+          type: 'number',
+          number: newBalance
         }
       }
     });
+
+    return {
+      success: true,
+      newBalance
+    };
   } catch (error) {
     console.error('Error updating booth balance:', error);
     throw error;
@@ -175,7 +246,7 @@ export async function createTransaction(transaction: Omit<Transaction, 'id'>) {
   try {
     await notion.pages.create({
       parent: {
-        database_id: DATABASES.TRANSACTIONS!
+        database_id: process.env.NOTION_TRANSACTIONS_DB!
       },
       properties: {
         'Name': {
