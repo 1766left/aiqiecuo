@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
-interface ActivationFormProps {
-  onActivationSuccess: () => void
+interface Props {
+  onSuccess: () => void
 }
 
-export default function ActivationForm({ onActivationSuccess }: ActivationFormProps) {
+export default function ActivationForm({ onSuccess }: Props) {
+  const router = useRouter()
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,13 +20,13 @@ export default function ActivationForm({ onActivationSuccess }: ActivationFormPr
     setError('')
 
     try {
-      // TODO: Implement activation API call
       const response = await fetch('/api/activate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ phone, password }),
+        credentials: 'include', // 确保包含 cookies
       })
 
       const data = await response.json()
@@ -33,7 +35,15 @@ export default function ActivationForm({ onActivationSuccess }: ActivationFormPr
         throw new Error(data.message || '激活失败')
       }
 
-      onActivationSuccess()
+      // 清除表单
+      setPhone('')
+      setPassword('')
+      
+      // 通知父组件登录成功
+      onSuccess()
+      
+      // 强制刷新以确保获取最新状态
+      router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : '激活过程中出现错误')
     } finally {
@@ -55,7 +65,7 @@ export default function ActivationForm({ onActivationSuccess }: ActivationFormPr
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           required
           pattern="[0-9]{11}"
-          placeholder="请输入手机号"
+          placeholder="请输入11位手机号"
         />
       </div>
 
@@ -85,7 +95,7 @@ export default function ActivationForm({ onActivationSuccess }: ActivationFormPr
           loading ? 'opacity-50 cursor-not-allowed' : ''
         }`}
       >
-        {loading ? '激活中...' : '激活账号'}
+        {loading ? '处理中...' : '登录/激活'}
       </button>
     </form>
   )

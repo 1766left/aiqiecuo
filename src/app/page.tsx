@@ -1,34 +1,60 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useAuth } from '@/hooks/useAuth'
 import ActivationForm from '@/components/ActivationForm'
 import TransferForm from '@/components/TransferForm'
 
 export default function Home() {
-  const [isActivated, setIsActivated] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const { isAuthenticated, isLoading, logout } = useAuth()
+  const [showActivation, setShowActivation] = useState(true)
 
-  useEffect(() => {
-    // TODO: Check token and activation status
-    setLoading(false)
-  }, [])
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
+      <main className="min-h-screen w-full flex items-center justify-center p-4 bg-gray-50">
+        <div className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold">加载中...</h2>
+          </div>
+        </div>
+      </main>
     )
   }
 
   return (
-    <div className="w-full max-w-md">
-      <h1 className="text-2xl font-bold text-center mb-8">AI 切磋大会积分系统</h1>
-      {!isActivated ? (
-        <ActivationForm onActivationSuccess={() => setIsActivated(true)} />
-      ) : (
-        <TransferForm />
-      )}
-    </div>
+    <main className="min-h-screen w-full flex items-center justify-center p-4 bg-gray-50">
+      <div className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl bg-white rounded-lg shadow-md p-6">
+        <div className="relative">
+          {isAuthenticated && (
+            <button
+              onClick={logout}
+              className="absolute top-0 right-0 text-sm text-gray-600 hover:text-gray-900"
+            >
+              退出登录
+            </button>
+          )}
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-semibold">
+              {isAuthenticated ? '积分转账' : 'AI 切磋大会'}
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              {isAuthenticated
+                ? '请选择摊位并输入转账金额'
+                : '请输入手机号和密码'}
+            </p>
+          </div>
+
+          {isAuthenticated ? (
+            <TransferForm />
+          ) : (
+            <ActivationForm onSuccess={() => {
+              setShowActivation(false)
+              // 强制刷新页面以确保获取最新状态
+              window.location.href = '/'
+            }} />
+          )}
+        </div>
+      </div>
+    </main>
   )
 }
