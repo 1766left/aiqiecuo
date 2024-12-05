@@ -9,60 +9,63 @@ interface Booth {
 }
 
 export default function TransferForm() {
-  const searchParams = useSearchParams()
-  const preSelectedId = searchParams.get('id')
-
   const [balance, setBalance] = useState<number | null>(null)
-  const [amount, setAmount] = useState('')
   const [booths, setBooths] = useState<Booth[]>([])
-  const [selectedBooth, setSelectedBooth] = useState<string>('')
+  const [selectedBooth, setSelectedBooth] = useState('')
+  const [amount, setAmount] = useState('')
+  const [note, setNote] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  const searchParams = useSearchParams()
+  const preselectedId = searchParams.get('id')
+
+  const fetchBalance = async () => {
+    try {
+      const balanceRes = await fetch('/api/balance')
+      if (!balanceRes.ok) {
+        throw new Error('获取余额失败')
+      }
+      const balanceData = await balanceRes.json()
+      setBalance(balanceData.balance)
+    } catch (err) {
+      setError('获取余额失败')
+    }
+  }
+
   useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        const balanceRes = await fetch('/api/balance')
-        if (!balanceRes.ok) {
-          throw new Error('获取余额失败')
-        }
-        const balanceData = await balanceRes.json()
-        setBalance(balanceData.balance)
-      } catch (err) {
-        setError('获取余额失败')
-      }
-    }
-
-    const fetchBooths = async () => {
-      try {
-        const response = await fetch('/api/booths')
-        if (!response.ok) {
-          throw new Error('获取摊位列表失败')
-        }
-        const data = await response.json()
-        // 确保 data.booths 是数组
-        const boothsList = Array.isArray(data.booths) ? data.booths : []
-        setBooths(boothsList)
-        
-        // 如果有预选的摊位 ID，自动选中
-        if (preSelectedId) {
-          const booth = boothsList.find((b: Booth) => b.id === preSelectedId)
-          if (booth) {
-            setSelectedBooth(booth.id)
-          }
-        }
-      } catch (error) {
-        setError('获取摊位列表失败，请刷新重试')
-      }
-    }
-
     const fetchInitialData = async () => {
       await Promise.all([fetchBalance(), fetchBooths()])
     }
-
     fetchInitialData()
-  }, [preSelectedId])
+  }, [])
+
+  const fetchBooths = async () => {
+    try {
+      const response = await fetch('/api/booths')
+      if (!response.ok) {
+        throw new Error('获取摊位列表失败')
+      }
+      const data = await response.json()
+      setBooths(data.booths)
+
+      // 如果有预选的摊位ID，自动选择对应的摊位
+      if (preselectedId) {
+        const matchedBooth = data.booths.find((booth: any) => booth.id === preselectedId)
+        if (matchedBooth) {
+          setSelectedBooth(matchedBooth.id)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching booths:', error)
+      setError('获取摊位列表失败，请刷新重试')
+    }
+  }
+
+  useEffect(() => {
+    fetchBooths()
+  }, [preselectedId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,7 +81,8 @@ export default function TransferForm() {
         },
         body: JSON.stringify({
           boothId: selectedBooth,
-          amount: parseInt(amount),
+          amount: Number(amount),
+          note,
         }),
       })
 
@@ -88,14 +92,18 @@ export default function TransferForm() {
         throw new Error(data.message || '转账失败')
       }
 
-      setSuccess(`✨ 转账成功！您的余额为 ${data.newBalance} 积分`)
+      setSuccess(
+        `转账成功！🎉\n` +
+        `您的余额为 ${data.newBalance} 积分\n` +
+        `${data.boothName} 已经赚取 ${amount} 积分，总积分为 ${data.boothBalance} 🎈`
+      )
       setAmount('')
-      setSelectedBooth('')
+      setNote('')
       
       // 成功后刷新余额
       await fetchBalance()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '转账失败，请重试')
+      setError(err instanceof Error ? err.message : '转账过程中出现错误')
       // 失败后也刷新余额，确保显示正确的余额
       await fetchBalance()
     } finally {
@@ -126,7 +134,7 @@ export default function TransferForm() {
             <option value="">请选择摊位</option>
             {booths.map((booth) => (
               <option key={booth.id} value={booth.id}>
-                {booth.id}
+                {booth.id} - {booth.name}
               </option>
             ))}
           </select>
@@ -134,7 +142,7 @@ export default function TransferForm() {
 
         <div>
           <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
-            转账金额
+            转账积分
           </label>
           <input
             type="number"
@@ -145,7 +153,21 @@ export default function TransferForm() {
             required
             min="1"
             max={balance ?? undefined}
-            placeholder="请输入转账金额"
+            placeholder="请输入转账积分数量"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="note" className="block text-sm font-medium text-gray-700">
+            备注
+          </label>
+          <input
+            type="text"
+            id="note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            placeholder="请输入转账备注"
           />
         </div>
 
@@ -154,7 +176,13 @@ export default function TransferForm() {
         )}
 
         {success && (
-          <div className="text-green-500 text-sm">{success}</div>
+          <div className="bg-green-50 border border-green-200 rounded-md p-4 text-sm">
+            {success.split('\n').map((line, index) => (
+              <p key={index} className="text-green-700">
+                {line}
+              </p>
+            ))}
+          </div>
         )}
 
         <button
@@ -164,7 +192,7 @@ export default function TransferForm() {
             loading ? 'opacity-50 cursor-not-allowed' : ''
           }`}
         >
-          {loading ? '处理中...' : '确认转账'}
+          {loading ? '转账中...' : '确认转账'}
         </button>
       </form>
     </div>
