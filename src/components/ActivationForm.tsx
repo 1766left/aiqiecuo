@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 interface Props {
   onSuccess: () => void
 }
 
 export default function ActivationForm({ onSuccess }: Props) {
-  const router = useRouter()
+  const searchParams = useSearchParams()
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -26,7 +26,7 @@ export default function ActivationForm({ onSuccess }: Props) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ phone, password }),
-        credentials: 'include', // 确保包含 cookies
+        credentials: 'include',
       })
 
       const data = await response.json()
@@ -42,8 +42,10 @@ export default function ActivationForm({ onSuccess }: Props) {
       // 通知父组件登录成功
       onSuccess()
       
-      // 强制刷新以确保获取最新状态
-      router.refresh()
+      // 保持 URL 参数的跳转
+      const currentParams = new URLSearchParams(window.location.search)
+      const redirectUrl = currentParams.toString() ? `/?${currentParams.toString()}` : '/'
+      window.location.href = redirectUrl
     } catch (err) {
       setError(err instanceof Error ? err.message : '激活过程中出现错误')
     } finally {
